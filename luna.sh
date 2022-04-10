@@ -1,16 +1,54 @@
 # :::::::::::::::::::::::::::::::::::::::::::
 #  Luna, the Arch Linux Install Configurator
 
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+# Project repository: https://github.com/leafybear/luna
+
 #  A. Bentley (leafybear@icloud.com)
 #  edit: 2022
 # :. : . : . : . : . : . : . : . : . : . : .:
+
 #!/bin/bash
 
 
 
+# initial bootstrap: system creation (install)
+	# base system
+	# make fstab
+# chroot in system: initial setup (chroot)
+	# console font
+	# locale
+	# timezone
+	# initramfs img
+	# pacman reflector
+	# refind
+	# -> install more packages
+# after first boot: further config (first boot)
+	# get YUP
+	# set passwd for root
+	# make a user
+	# update the system
+	# -> install more packages
+
+# Use external shell scripts to execute changes so that they can be updated easier by me or others
+
+
 
 # :. : . : . : . : . : . : . : . : . : . : .:
-# : .  formatting  . :
+# : .    formatting    . :
 
 
 
@@ -20,48 +58,47 @@ logo () {
 	echo "  / / | | | | '_ \ / _\` | "
 	echo " / /__| |_| | | | | (_| | "
 	echo " \____/\__,_|_| |_|\__,_| "
-	echo " an Arch Linux configuration tool"
+	echo " an Arch Linux install tool"
 	echo
 }
 
-err () { # display an error message to stderr (in red)
-	printf "\033[1;31m%s\033[0m\n" "$*" >&2
+err () { # display an error message to stderr
+	printf "\033[0;31m%s\033[0m\n" "$*" >&2
 }
 
-inform () { # display an informational message (first argument in green, second in magenta)
-	printf "\033[0;32m%s \033[0;35m%s\033[0m\n" "$1" "$2"
+inform () { # a green info message
+	printf "\033[0;32m%s\033[0m\n" "$1"
 }
 
-prompt () { # prompts the user with message in $1-2 ($1 in blue, $2 in magenta) and saves the input to the variables in $REPLY and $REPLY2
-	printf "\033[0;34m%s\033[0;35m%s\033[1;34m: \033[0m" "$1" "$2"
-	read -r REPLY REPLY2
+prompt () { # prompt the user a message ($1) and saves the input as $REPLY
+	printf "\033[0;34m%s: \033[0m" "$1"
+	read -r REPLY
 }
 
-warn () { # display an informational message (first argument in green, second in magenta)
+warn () { # display a warning in red ($1) and orange ($2)
 	printf "\033[0;31m%s \033[0;33m%s\033[0m\n" "$1" "$2"
 }
 
-menu_line_even () { # displays an even (cyan) line of a menu line with $2 as an indicator in [] and $1 as the option
+menu_a () { # displays a cyan menu line [$2] $1
 	printf "\033[0;34m[\033[0;36m%s\033[1;34m] \033[0;36m%s\033[0m\n" "$2" "$1"
 }
 
-menu_line_odd() { # displays an odd (yellow) line of a menu line with $2 as an indicator in [] and $1 as the option
+menu_b () { # displays a yellow menu line [$2] $1
 	printf "\033[0;34m[\033[0;33m%s\033[1;34m] \033[0;33m%s\033[0m\n" "$2" "$1"
 }
 
-menu_line_strong() {
-	# displays a warning (red) line of a menu line with $2 as an indicator in [] and $1 as the option
+menu_emph () { # displays a magenta menu line [$2] $1
 	printf "\033[0;34m[\033[0;35m%s\033[0;34m] \033[0;35m%s\033[0m\n" "$2" "$1"
 }
 
-menu_line_alternate() {
-	menu_line_parity=${menu_line_parity:-0}
-	if [ "$menu_line_parity" -eq 0 ]; then
-		menu_line_odd "$1" "$2"
-		menu_line_parity=1
+menu_alt() {
+	menuColor=${menuColor:-0}
+	if [ "$menuColor" -eq 0 ]; then
+		menu_b "$1" "$2"
+		menuColor=1
 	else
-		menu_line_even "$1" "$2"
-		menu_line_parity=0
+		menu_a "$1" "$2"
+		menuColor=0
 	fi
 }
 
@@ -70,7 +107,9 @@ menu_line_alternate() {
 
 
 # :. : . : . : . : . : . : . : . : . : . : .:
-# : .  input menus  . :
+# : .     menus    . :
+
+
 
 
 usage() { warn "Usage:" "$(basename $0) /path/to/system/root"; exit; }
@@ -82,30 +121,198 @@ qq () {
 	exit
 }
 
-top_menu () {
-	inform "What shall we do?"
-	sleep 0.5
-	menu_line_alternate "install packages" "i"
-	sleep 0.025
-	menu_line_alternate "system setup" "s"
-	sleep 0.025
-	menu_line_alternate "rEFInd setup" "r"
-	sleep 0.025
-	menu_line_strong "quit" "q"
+doChroot () {
+	if ! command -v "arch-chroot" >/dev/null ; then
+		err "\"arch-chroot\" not found. Please install it."
+	else
+		arch-chroot $sys_root /bin/bash
+		exit
+	fi
+
+}
+
+
+main_menu () {
+	# $1 : 0 or 1 to toggle screen clear
+	# $2 information text at the beginning of the list
+	if [ $1 -eq 1 ]; then tput clear; fi
+	inform "$2"
+	sleep 0.25
+	menu_alt "System creation (install)" "1"
+	menu_alt "Initial setup (chroot)" "2"
+	menu_alt "Further configuration (first boot)" "3"
+	menu_alt "Get more packages" "4"
+	menu_emph "quit" "q"
+	while :; do
+		prompt " ? "
+		choice="$REPLY"
+		case $choice in
+			1)
+				system_menu 1 "Install a system"; break;;
+			2)
+				chroot_menu 1; break;;
+			3)
+				config_menu 1; break;;
+			4)
+				package_menu 1 "Install packages"; break;;
+			q)
+				qq;;
+			*)
+				err "not an option."
+				continue;;
+		esac
+	done
+}
+
+system_menu () {
+	# $1 : 0 or 1 to toggle screen clear
+	# $2 information text at the beginning of the list
+	if [ $1 -eq 1 ]; then tput clear; fi
+	inform "$2"
+	sleep 0.25
+	menu_alt "Bootstrap the system" "1"
+	menu_alt "Genereate an fstab" "2"
+	menu_emph "back" "b"
 	while :; do
 		prompt "?"
 		choice="$REPLY"
 		case $choice in
-			i)
-				package_menu
+			1)
+				inform "installing a base system"
+				./tools/bootstrap.sh $sys_root
+				echo; system_menu 0 "What should we do now?"; break;;
+			2)
+				inform "creating a new fstab"
+				./tools/genFstab.sh $sys_root
+				echo; system_menu 0 "What should we do now?"; break;;
+			b)
+				main_menu 1 "What's next?"
 				break # leave this input loop
 				;;
-			s)
-				system_config_menu
+			q)
+				qq
+				;;
+			*)
+				err "not an option."
+				continue
+				;;
+		esac
+	done
+}
+
+chroot_menu () {
+	# $1 : 0 or 1 to toggle screen clear
+	# $2 information text at the beginning of the list
+	if [ $1 -eq 1 ]; then tput clear; fi
+	inform "$2"
+	sleep 0.25
+	menu_alt "Chroot to the new system" "1"
+	menu_alt "Set the console font" "2"
+	menu_alt "Set the system locale" "3"
+	menu_alt "Set the timezone" "4"
+	menu_alt "Change default network names" "5"
+	menu_alt "Make a new initramfs img" "6"
+	menu_alt "Setup pacman mirrors" "7"
+	menu_alt "Install rEFInd" "8"
+	menu_alt "Configure rEFInd" "9"
+	menu_emph "back" "b"
+	while :; do
+		prompt "?"
+		choice="$REPLY"
+		case $choice in
+			1)
+				inform "chroot-ing to the new root"
+				doChroot
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			2)
+				inform "setting the console font"
+				./tools/setFont.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			3)
+				inform "setting the system locale"
+				./tools/setLocale.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			4)
+				inform "setting the timezone"
+				./tools/setTime.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			5)
+				inform "change default network device names"
+				./tools/setSaneDeviceNames.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			6)
+				inform "making an initramfs img"
+				./tools/mkInitImg.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			7)
+				inform "setup pacman mirrors"
+				./tools/setupReflector.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			8)
+				inform "install rEFInd boot manager"
+				./tools/installRefind.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			9)
+				inform "configuring rEFInd boot manager"
+				./tools/makeRefindConfig.sh
+				echo; chroot_menu 0 "What should we do now?"; break;;
+			b)
+				main_menu 1 "What's next?"
 				break # leave this input loop
 				;;
-			r)
-				refind_menu
+			q)
+				qq
+				;;
+			*)
+				err "not an option."
+				continue
+				;;
+		esac
+	done
+}
+
+config_menu () {
+	# $1 : 0 or 1 to toggle screen clear
+	# $2 information text at the beginning of the list
+	if [ $1 -eq 1 ]; then tput clear; fi
+	inform "$2"
+	sleep 0.25
+	menu_alt "get YUP, arch user repository install" "1"
+	menu_alt "set root password" "2"
+	menu_alt "make a user" "3"
+	menu_alt "update the system" "4"
+	menu_alt "refresh pacman's GPG keys" "5"
+	menu_emph "back" "b"
+	while :; do
+		prompt "?"
+		choice="$REPLY"
+		case $choice in
+			1)
+				inform "getting YUP, the AUR installer"
+				./tools/getYup.sh
+				echo; config_menu 0 "What should we do now?"; break;;
+			2)
+				inform "set the root passwd"
+				#passwd root
+				echo; config_menu 0 "What should we do now?"; break;;
+			3)
+				inform "make a user"
+				prompt "new username?"
+				username="$REPLY"
+				#useradd -a -G wheel -s /bin/bash $username
+				inform "set their password"
+				#passwd $username
+				echo; config_menu 0 "What should we do now?"; break;;
+			4)
+				inform "update the system"
+				pacman -Syyu
+				echo; config_menu 0 "What should we do now?"; break;;
+			5)
+				inform "refresh pacman's security keys"
+				./tools/refreshPacmanKeys.sh
+				echo; config_menu 0 "What should we do now?"; break;;
+			b)
+				main_menu 1 "What's next?"
 				break # leave this input loop
 				;;
 			q)
@@ -120,61 +327,53 @@ top_menu () {
 }
 
 package_menu () {
-	inform "Okay. Let's install packages"
-	sleep 0.5
-	menu_line_alternate "base system" "1"
-	sleep 0.025
-	menu_line_alternate "console tools" "2"
-	sleep 0.025
-	menu_line_alternate "sound" "3"
-	sleep 0.025
-	menu_line_alternate "media tools" "4"
-	sleep 0.025
-	menu_line_alternate "xorg" "5"
-	sleep 0.025
-	menu_line_alternate "minimal window manager" "6"
-	sleep 0.025
-	menu_line_alternate "get YUP" "7"
-	sleep 0.025
-	menu_line_strong "update system" "u"
-	sleep 0.025
-	menu_line_strong "refresh pacman keys" "k"
-	sleep 0.025
-	menu_line_strong "menu" "m"
+	# $1 : 0 or 1 to toggle screen clear
+	# $2 information text at the beginning of the list
+	if [ $1 -eq 1 ]; then tput clear; fi
+	inform "$2"
+	sleep 0.25
+	menu_alt "Console tools (TUI)" "1"
+	menu_alt "Sound server and controller" "2"
+	menu_alt "Video and audio tools" "3"
+	menu_alt "X11 server and drivers" "4"
+	menu_alt "Tiling window manager (BSPWM)" "5"
+	menu_alt "Bluetooth tools" "6"
+	menu_alt "KDE Plasma" "7"
+	menu_emph "back" "b"
 	while :; do
 		prompt "?"
 		choice="$REPLY"
 		case $choice in
 			1)
-				installBaseSystem
-				break
-				;;
+				inform "installing console tools"
+				./tools/installTui.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			2)
-				installConsoleTools
-				break
-				;;
+				inform "installing sound server"
+				./tools/installSound.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			3)
-				installSound
-				break
-				;;
+				inform "installing video and audio tools"
+				./tools/installMediaTools.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			4)
-				installMediaTools
-				break
-				;;
+				inform "installing x11 server and drivers"
+				./tools/installX11.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			5)
-				installXorg
-				break
-				;;
+				inform "installing minimal tiling window manager BSPWM"
+				./tools/installTilingWM.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			6)
-				installMinimalWM
-				break
-				;;
+				inform "installing bluetooth tools"
+				./tools/installBluetooth.sh
+				echo; package_menu 0 "Install something else?"; break;;
 			7)
-				installYUP
-				break
-				;;
-			m)
-				top_menu
+				inform "installing KDE and plasma"
+				./tools/installKDE.sh
+				echo; package_menu 0 "Install something else?"; break;;
+			b)
+				main_menu 1 "What's next?"
 				break # leave this input loop
 				;;
 			q)
@@ -187,248 +386,9 @@ package_menu () {
 		esac
 	done
 }
-
-system_config_menu () {
-	inform "What shall we configure?"
-	sleep 0.5
-	menu_line_alternate "generate the fstab" "1"
-	sleep 0.025
-	menu_line_alternate "set the console font" "2"
-	sleep 0.025
-	menu_line_alternate "set system locale" "3"
-	sleep 0.025
-	menu_line_alternate "set the timezone" "4"
-	sleep 0.025
-	menu_line_alternate "enable sane network interface names" "5"
-	sleep 0.025
-	menu_line_alternate "make new initram img" "6"
-	sleep 0.025
-	menu_line_alternate "setup pacman reflector" "7"
-	sleep 0.025
-	menu_line_alternate "set hostname" "8"
-	sleep 0.025
-	menu_line_strong "menu" "m"
-	while :; do
-		prompt "?"
-		choice="$REPLY"
-		case $choice in
-			1)
-				makeFstab
-				break
-				;;
-			2)
-				setTheFont
-				break
-				;;
-			3)
-				setupTheLocale
-				break
-				;;
-			4)
-				setupTime
-				break
-				;;
-			5)
-				setupNetworkDeviceNames
-				break
-				;;
-			6)
-				makeInitramFS
-				break
-				;;
-			7)
-				setupReflector
-				break
-				;;
-			8)
-				setupHostname
-				break
-				;;
-			m)
-				top_menu
-				break # leave this input loop
-				;;
-			q)
-				qq
-				;;
-			*)
-				err "not an option."
-				continue
-				;;
-		esac
-	done
-}
-
-refind_menu () {
-	inform "rEFInd boot manager"
-	sleep 0.5
-	menu_line_alternate "install" "1"
-	sleep 0.025
-	menu_line_alternate "configure" "2"
-	sleep 0.025
-	menu_line_alternate "theme it" "3"
-	sleep 0.025
-	menu_line_alternate "manage efi boot entries" "4"
-	sleep 0.025
-	menu_line_strong "menu" "m"
-	while :; do
-		prompt "?"
-		choice="$REPLY"
-		case $choice in
-			m)
-				top_menu
-				break # leave this input loop
-				;;
-			q)
-				qq
-				;;
-			*)
-				err "not an option."
-				continue
-				;;
-		esac
-	done
-}
-
 
 # :. : . : . : . : . : . : . : . : . : . : .:
-# : .  actions!!  . :
-
-
-
-
-installBaseSystem () {
-	# base base-devel arch-install-scripts reflector
-	# linux linux-firmware dosfstools exfat-utils ntfs-3g
-	# iwd openssh rsync wget curl git nmap terminus-font
-	# avahi nss-mdns
-	echo "installing base system"
-	sleep 0.5
-	package_menu
-}
-
-installConsoleTools () {
-	# neovim nnn zsh tmux tree fd fzf exa neofetch gdu weechat
-	# patch dstat pv htop multitail lftp mutt lm_sensors
-	# gitui lazygit python-pip
-	# ranger screen atool highlight libcaca lynx w3m mediainfo poppler transmission-cli
-	echo "installing console tools"
-	sleep 0.5
-	package_menu
-}
-
-installSound () {
-	# alsa-utils pulseaudio pavucontrol paprefs
-	echo "installing sound server and controller"
-	sleep 0.5
-	package_menu
-}
-
-installMediaTools () {
-	# ffmpeg imagemagick perl-exif-tools youtube-dl
-	echo "installing media tools"
-	sleep 0.5
-	package_menu
-}
-
-installXorg () {
-	# xorg-server xorg-xinit xorg-xkill xorg-xev xorg-xsetroot xorg-xrdb xorg-xfontsel xscreensaver
-	echo "installling xorg"
-	sleep 0.5
-	package_menu
-}
-
-installMinimalWM () {
-	# bspwm sxhkd picom viu kitty feh sxiv scrot rofi rofimoji dunst mpv wireless_tools lxappearance-gtk3
-	echo "installing BSPWM and friends"
-	sleep 0.5
-	package_menu
-}
-
-installYUP () {
-	# git clone https://aur.archlinux.org/yup.git
-	# cd yup
-	# makepkg -si
-	# cd ..
-	# rm -rf yup
-	echo "installing YUP"
-	sleep 0.5
-	package_menu
-}
-
-makeFstab () {
-	#genfstab -U -p $1 >> $1/etc/fstab
-	echo "generating a new fstab in $sys_root/etc/fstab."
-	sleep 0.5
-	system_config_menu
-}
-
-setTheFont () {
-	#echo FONT=ter-v32n > /etc/vconsole.conf
-	#setfont ter-v32n
-	echo "setting the console font to ter-v32n"
-	sleep 0.5
-	system_config_menu
-}
-
-setupTheLocale () {
-	#cp configs/locale.gen /etc/locale.gen
-	#export LANG=en_GB.UTF-8
-	#locale-gen
-	echo "setting the lang and generated new locale"
-	sleep 0.5
-	system_config_menu
-}
-
-setupTime () {
-	#ln -sf /usr/share/zoneinfo/Australia/Sydney /etc/localtime
-	#timedatectl set-ntp true
-	echo "setting the timezone and ntp"
-	sleep 0.5
-	system_config_menu
-}
-
-setupNetworkDeviceNames () {
-	#ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
-	echo "setting more sane network device names"
-	sleep 0.5
-	system_config_menu
-}
-
-makeInitramFS () {
-	#cp configs/mkinitcpio.conf /etc/mkinitcpio.conf
-	#mkinitcpio -p linux
-	echo "copying mkinitcpio config and compiling a new image"
-	sleep 0.5
-	system_config_menu
-}
-
-setupReflector () {
-	#cp configs/reflector.conf /etc/xdg/reflector/reflector.conf
-	#systemctl enable reflector
-	echo "copying reflector config and enabling"
-	sleep 0.5
-	system_config_menu
-}
-
-setupHostname () {
-	# if [ -d "$1" ]; then
-	# 	hostnamectl set-hostname $1
-	# 	hostnamectl set-icon-name computer
-	# 	hostnamectl set-chassis desktop
-	# else
-	# 	echo -e "Give me a new hostname to set:"
-	# 	echo -e "$\t./setHostname.sh new-hostname"
-	# fi
-	echo "setting the hostname"
-	sleep 0.5
-	system_config_menu
-
-}
-
-
-# :. : . : . : . : . : . : . : . : . : . : .:
-# : .  the script  . :
+# : .    the script    . :
 
 
 
@@ -441,13 +401,24 @@ if [ -z $1 ]; then
 	exit
 fi
 
+if ! [ -d "configs" ]; then
+	err "Luna needs to bu run in the same folder as her config folder."
+	exit
+fi
+
+if ! [ -d "tools" ]; then
+	err "Luna needs to bu run in the same folder as her tools folder."
+	exit
+fi
+
 sys_root=$1
 if ! [ -d "$sys_root" ]; then
 	warn "$sys_root" "is not a real directory."
 	exit
 else
+	tput clear
 	logo
-	top_menu
+	main_menu 0
 fi
 
 
